@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VocabVibe Pro - Teacher Edition</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --primary: #2563eb;
+            --accent: #f59e0b;
+            --card-bg: #ffffff;
+            --transition: all 0.2s ease;
+        }
+
+        body.theme-general { --primary: #2563eb; }
+        body.theme-business { --primary: #0f172a; --accent: #10b981; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 480px;
+            text-align: center;
+            position: relative;
+        }
+
+        .view { display: none; animation: fadeIn 0.3s ease; }
+        .view.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+        .cefr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; margin-top: 1.5rem; }
+
+        button {
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        button:hover { border-color: var(--primary); background: #f1f5f9; }
+
+        /* The Result Card */
+        .word-card {
+            background: #fdfdfd;
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-top: 1.5rem;
+            border: 1px solid #e2e8f0;
+            text-align: left;
+            min-height: 250px;
+        }
+
+        .word-title { font-size: 2.2rem; color: var(--primary); margin: 0; }
+        .reveal-box {
+            background: #f1f5f9;
+            border: 2px dashed #cbd5e1;
+            padding: 1rem;
+            text-align: center;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        .label { font-weight: 700; font-size: 0.75rem; text-transform: uppercase; color: #64748b; display: block; margin-top: 1rem; }
+        
+        .nav-footer { display: flex; justify-content: space-between; margin-top: 2rem; }
+        .fav-btn { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; background: none; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <button class="fav-btn" onclick="showFavourites()">📂</button>
+
+        <div id="view-1" class="view active">
+            <h1>VocabVibe</h1>
+            <p>Select your learning method:</p>
+            <div class="btn-grid">
+                <button onclick="setMode('learn')" style="height: 100px;">📖<br>Study Mode<br><small style="font-weight:normal">Word First</small></button>
+                <button onclick="setMode('test')" style="height: 100px;">🧠<br>Challenge Mode<br><small style="font-weight:normal">Definition First</small></button>
+            </div>
+        </div>
+
+        <div id="view-2" class="view">
+            <h1>English Type</h1>
+            <div class="btn-grid">
+                <button onclick="selectType('general')">General English</button>
+                <button onclick="selectType('business')">Business English</button>
+            </div>
+            <button style="margin-top:2rem; width:100%" onclick="showView(1)">← Back</button>
+        </div>
+
+        <div id="view-3" class="view">
+            <h2>Select Level</h2>
+            <div class="cefr-grid">
+                <button onclick="selectLevel('A1')">A1</button>
+                <button onclick="selectLevel('A2')">A2</button>
+                <button onclick="selectLevel('B1')">B1</button>
+                <button onclick="selectLevel('B2')">B2</button>
+                <button onclick="selectLevel('C1')">C1</button>
+                <button onclick="selectLevel('C2')">C2</button>
+            </div>
+            <button style="margin-top:2rem; width:100%" onclick="showView(2)">← Back</button>
+        </div>
+
+        <div id="view-4" class="view">
+            <div id="word-content"></div>
+            <div class="btn-grid">
+                <button onclick="showView(3)">← Levels</button>
+                <button style="background:var(--primary); color:white" onclick="fetchWordData()">Next →</button>
+            </div>
+        </div>
+
+        <div id="view-5" class="view">
+            <h2>Saved Words</h2>
+            <div id="fav-list" style="max-height: 300px; overflow-y: auto;"></div>
+            <button style="margin-top:2rem; width:100%" onclick="showView(1)">Close</button>
+        </div>
+    </div>
+
+    <script>
+        let appState = { mode: 'learn', type: '', level: '' };
+        let currentWordData = null;
+        let favourites = JSON.parse(localStorage.getItem('vocab_favs')) || [];
+
+        // Full 720 Word Bank logic (Same words as before)
+        const wordBank = {
+            general: {
+                A1: ["Apple","Banana","Car","Dog","Egg","Family","Girl","House","Ice","Jump","Kitchen","Love","Mother","Night","Open","Paper","Queen","Read","Sun","Table","Uncle","Visit","Water","Yellow","Zoo","Book","Chair","Desk","Eat","Fish","Green","Happy","Island","Key","Lemon","Milk","Name","Orange","Phone","Quiet","Rice","Sister","Tree","Under","Very","Walk","Box","Cold","Day","Fine","Game","Hot","Job","Long","Many","New","Old","Place","Rain","Small"],
+                A2: ["Airport","Believe","Camera","Decision","Example","Flight","Garden","History","Island","Journey","Kitchen","Lesson","Message","Nature","Opinion","Perfect","Question","Reason","Silence","Tonight","Useful","Village","Weather","Young","Abroad","Bottle","Cloudy","Danger","Energy","Famous","Guitar","Health","Instead","Jungle","Knife","Laptop","Modern","Nearby","Online","Package","Quite","Region","Search","Ticket","Unusual","Vacation","Weight","Yelling","Breathe","Careful","Double","Expert","Factor","Global","Height","Inform","Judge","Kindly","Local","Member"],
+                B1: ["Resilient","Nostalgia","Determine","Environment","Encourage","Opportunity","Analyze","Benefit","Challenge","Detail","Essential","Focus","Generate","Hazard","Identify","Justice","Knowledge","Logical","Measure","Notice","Observe","Prevent","Quality","Reflect","Source","Target","Unique","Value","Witness","Yield","Acknowledge","Barrier","Capacity","Debate","Efficient","Flexible","Gesture","Habit","Ignore","Justice","Keen","Limit","Motivate","Network","Opinion","Persuade","Quote","Relate","Solve","Target","Undertake","Various","Wealth","Adapt","Blend","Clarify","Diverse","Evolve","Feature","Gather"],
+                B2: ["Accommodate","Bias","Comprehensive","Diverse","Emphasis","Fundamental","Hypothesis","Interpret","Justify","Legitimate","Maintain","Negotiate","Objective","Perspective","Reinforce","Strategy","Theory","Underestimate","Validate","Widespread","Acquire","Brief","Context","Draft","Evaluate","Function","Goal","Implement","Journal","Keynote","Layer","Monitor","Notable","Overall","Principal","Quota","Relevant","Status","Trend","Utterly","Virtual","Warranty","Yield","Abstract","Boundary","Component","Dimension","Exposure","Framework","Guideline","Hierarchy","Insight","Jointly","Knowledge","Logistics","Mechanism","Norm","Outcome","Priority","Ratio"],
+                C1: ["Ambiguous","Benchmark","Coherent","Derivative","Elaborate","Formulate","Gratification","Inference","Juxtapose","Kinetic","Legislation","Manifest","Notion","Parameter","Qualitative","Redundant","Synthesize","Transcend","Utilitarian","Versatile","Yield","Zenith","Acquisition","Bolster","Catalyst","Delineate","Eloquent","Facilitate","Garrulous","Heuristic","Immutable","Judicious","Knack","Lucid","Malleable","Nefarious","Opaque","Pensive","Quaint","Reticent","Salient","Tacit","Ubiquitous","Venerable","Wistful","Xenophobia","Yearn","Zealot","Anomaly","Breach","Cognitive","Discrepancy","Exacerbate","Fluctuation","Grievance","Hindsight","Inherent","Jargon","Kindle","Lament"],
+                C2: ["Aberration","Circumspect","Dichotomy","Ephemeral","Fastidious","Gregarious","Hubris","Idiosyncratic","Juxtaposition","Kaleidoscope","Lucid","Metaphysical","Nebulous","Obfuscate","Paradigm","Quintessential","Recalcitrant","Soliloquy","Tenuous","Ubiquitous","Vicarious","Wonton","Xenophile","Yonder","Zenith","Alacrity","Banal","Capricious","Deference","Enervate","Fatuous","Garrulous","Harangue","Inchoate","Jejune","Knell","Laconic","Maudlin","Neophyte","Onerous","Paucity","Quiescent","Recondite","Soporific","Torpor","Unctuous","Vacillate","Winsome","Zeal","Abnegation","Burnish","Castigate","Diatribe","Ebullient","Foment","Gainsay","Hegemony","Iconoclast","Invective","Lassitude"]
+            },
+            business: {
+                A1: ["Office","Email","Report","Meeting","Company","Client","Work","Staff","Phone","Sales","Price","Brand","Boss","Team","Desk","Card","Job","Buy","Sell","Pay","Cost","Plan","Idea","Goal","Task","Web","Link","File","Note","Tool","Box","Sign","Post","Mail","Fax","Shop","Store","Bank","Cash","Coin","Firm","Unit","Part","Form","List","Data","Page","Logo","User","Call","Talk","Name","Date","Time","Week","Day","Year","City","Area","World"],
+                A2: ["Invoice","Contract","Service","Department","Schedule","Project","Action","Agenda","Budget","Draft","Error","Follow","Group","Handle","Income","Junior","Level","Manager","Notice","Order","Profit","Quality","Review","Senior","Target","Update","Value","Weekly","Branch","Career","Credit","Design","Export","Import","Growth","Labour","Market","Output","Period","Retail","Salary","Tax","Upset","Volume","Wealth","Yield","Advice","Board","Cargo","Detail","Energy","Factor","Goods","Hire","Item","Joint","Key","Layout","Member","Neutral"],
+                B1: ["Leverage","Stakeholder","Forecast","Agenda","Deadline","Strategy","Asset","Benefit","Capital","Demand","Equity","Feature","Global","Impact","Launch","Margin","Network","Option","Partner","Quota","Revenue","Segment","Trend","Unique","Volume","Workforce","Acquire","Balance","Comply","Default","Expand","Fiscal","Grants","Holding","Invest","Jointly","Leasing","Merger","Notify","Overall","Premium","Quarterly","Refund","Shortage","Trainee","Urgent","Venture","Wholesale","Yield","Audit","Branch","Climate","Default","Estate","Fund","Grant","House","Interim","Judge","Kudos"],
+                B2: ["Negotiate","Incentive","Redundant","Outsource","Discrepancy","Liability","Aggregate","Benchmark","Consolidated","Dividend","Enterprise","Feasibility","Growth","Hostile","Inventory","Jurisdiction","Keyword","Logistics","Marketable","Nominal","Operating","Personnel","Quantity","Redemption","Sustainability","Turnover","Uncertainty","Volatility","Warranty","Yield","Analysis","Broker","Core","Diversify","Exposure","Floating","Gearing","Hedging","Internal","Leasing","Maturing","Niche","Offer","Position","Rating","Spread","Technical","Unsecured","Value","Write-off","Agreement","Breach","Clause","Damages","Enforce","Force","Gross","Hold","Indemnity","Joint"],
+                C1: ["Acquisition","Scalability","Infrastructure","Benchmark","Diversification","Amortization","Capitalization","Derivative","Engagement","Fiduciary","Governance","Heuristics","Integration","Just-in-time","Keynote","Liquidity","Monopolization","Negative","Optimizing","Privatization","Quantitative","Recession","Stagnation","Taxation","Unbundling","Valuation","Withdrawal","Yield","Zero-sum","Amalgamation","Bilateral","Collateral","Downsize","Elasticity","Flotation","Gearing","Hyperinflation","Insolvency","Joint-venture","Knowledge-base","Leveraged","Multinational","Negotiable","Obsolescence","Performance","Rationalize","Speculation","Synergistic","Technical","Underwriter","Variable","Whistleblower","Allowance","Backlog","Cap","Debenture","External","Fine","Gains","Headcount"],
+                C2: ["Conglomerate","Divestiture","Fiduciary","Remuneration","Arbitrage","Hegemony","Absolutism","Bilateralism","Cartel","Deflationary","Expropriation","Foreclosure","Globalization","Hedge-fund","Interventionism","Joint-stock","Keynesianism","Laissez-faire","Mercantilism","Nationalization","Oligopoly","Protectionism","Quasi-public","Reciprocity","Subsidization","Technocracy","Under-capitalized","Venture-capital","Work-to-rule","Yield-curve","Zero-coupon","Actuary","Bourse","Commodity","Depreciation","Emolument","Franchisor","Garnishee","Honorarium","Indenture","Jobbery","Kiting","Liquidator","Mortgagee","Novation","Optionee","Proxy","Quiet-enjoyment","Receiver","Surety","Trustee","Usury","Vendor","Writ","Yield","Affidavit","Caveat","Deponent","Estoppel","Fee-simple"]
+            }
+        };
+
+        function showView(n) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(`view-${n}`).classList.add('active');
+        }
+
+        function setMode(m) {
+            appState.mode = m;
+            showView(2);
+        }
+
+        function selectType(t) {
+            appState.type = t;
+            document.body.className = `theme-${t}`;
+            showView(3);
+        }
+
+        function selectLevel(l) {
+            appState.level = l;
+            fetchWordData();
+            showView(4);
+        }
+
+        async function fetchWordData() {
+            const container = document.getElementById('word-content');
+            const words = wordBank[appState.type][appState.level];
+            const randomWord = words[Math.floor(Math.random() * words.length)];
+            
+            container.innerHTML = `<div style="padding: 2rem;">Loading...</div>`;
+
+            try {
+                const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${randomWord}`);
+                const data = await response.json();
+                currentWordData = { word: randomWord, ...data[0] };
+                renderCard();
+            } catch (err) {
+                container.innerHTML = `<h3>${randomWord}</h3><p>API error. Try next!</p>`;
+            }
+        }
+
+        function renderCard() {
+            const container = document.getElementById('word-content');
+            const { word, meanings, phonetic } = currentWordData;
+            const def = meanings[0].definitions[0].definition;
+            const ex = meanings[0].definitions[0].example;
+            const isFav = favourites.some(f => f.word === word);
+
+            let headerHtml = `
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                    <h2 class="word-title">${word}</h2>
+                    <div>
+                        <button onclick="speak('${word}')" style="border:none; background:none; font-size:1.5rem;">🔊</button>
+                        <button onclick="toggleFav('${word}')" style="border:none; background:none; font-size:1.5rem;">${isFav ? '⭐' : '☆'}</button>
+                    </div>
+                </div>
+            `;
+
+            if (appState.mode === 'test') {
+                headerHtml = `
+                    <div id="test-header" class="reveal-box" onclick="revealTest()">
+                        CLICK TO REVEAL WORD
+                    </div>
+                    <div id="actual-header" style="display:none; justify-content:space-between; align-items:center">
+                        <h2 class="word-title">${word}</h2>
+                        <div>
+                            <button onclick="speak('${word}')" style="border:none; background:none; font-size:1.5rem;">🔊</button>
+                            <button onclick="toggleFav('${word}')" style="border:none; background:none; font-size:1.5rem;">${isFav ? '⭐' : '☆'}</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="word-card">
+                    ${headerHtml}
+                    <span class="label">${appState.level} • ${appState.type}</span>
+                    <p style="font-style:italic; color:#64748b; margin-bottom:1rem">${phonetic || ''}</p>
+                    <span class="label">Definition</span>
+                    <p>${def}</p>
+                    ${ex ? `<span class="label">Example</span><p style="color:#475569"><em>"${ex}"</em></p>` : ''}
+                </div>
+            `;
+        }
+
+        function revealTest() {
+            document.getElementById('test-header').style.display = 'none';
+            document.getElementById('actual-header').style.display = 'flex';
+            speak(currentWordData.word);
+        }
+
+        function speak(text) {
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'en-GB';
+            window.speechSynthesis.speak(u);
+        }
+
+        function toggleFav(w) {
+            const i = favourites.findIndex(f => f.word === w);
+            if (i > -1) favourites.splice(i, 1);
+            else favourites.push({ word: w, level: appState.level, type: appState.type });
+            localStorage.setItem('vocab_favs', JSON.stringify(favourites));
+            renderCard();
+        }
+
+        function showFavourites() {
+            const list = document.getElementById('fav-list');
+            list.innerHTML = favourites.length ? '' : '<p>No saved words.</p>';
+            favourites.forEach(f => {
+                list.innerHTML += `
+                    <div style="display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #eee;">
+                        <span><strong>${f.word}</strong> (${f.level})</span>
+                        <button onclick="speak('${f.word}')" style="border:none; background:none;">🔊</button>
+                    </div>`;
+            });
+            showView(5);
+        }
+    </script>
+</body>
+</html>
